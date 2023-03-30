@@ -9,7 +9,7 @@ import UIKit
 import MapKit
 import CoreLocation
 
-class ViewController: UIViewController, MKMapViewDelegate {
+class ViewController: UIViewController, MKMapViewDelegate, UIGestureRecognizerDelegate {
     
     var currentLocation: CLLocation?
     
@@ -29,6 +29,12 @@ class ViewController: UIViewController, MKMapViewDelegate {
         mapView.showsUserLocation = true
         mapView.delegate = self
         
+        let lpgr = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        lpgr.minimumPressDuration = 0.5
+        lpgr.delaysTouchesBegan = true
+        lpgr.delegate = self
+        mapView.addGestureRecognizer(lpgr)
+        
         return mapView
     }()
     
@@ -36,8 +42,8 @@ class ViewController: UIViewController, MKMapViewDelegate {
         let button = UIButton()
         button.translatesAutoresizingMaskIntoConstraints = false
         button.backgroundColor = .systemMint
-        button.layer.cornerRadius = 70
-        button.setTitle("Specify a route", for: .normal)
+        button.layer.cornerRadius = 50
+        button.setTitle(NSLocalizedString("Specify a route", comment: ""), for: .normal)
         button.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
         return button
     }()
@@ -47,8 +53,10 @@ class ViewController: UIViewController, MKMapViewDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemTeal
-        self.title = "Map"
+        view.backgroundColor = .systemMint
+        self.title = NSLocalizedString("title-Map", comment: "")
+        let infoButton = UIBarButtonItem(image: UIImage(systemName: "info.circle"), style: .plain, target: self, action: #selector(showInfo))
+        self.navigationItem.rightBarButtonItem = infoButton
         
         addSubviews()
         setupConstraints()
@@ -62,17 +70,36 @@ class ViewController: UIViewController, MKMapViewDelegate {
 
     // MARK: - Private
     
+    @objc func showInfo() {
+        let alert = UIAlertController(title: NSLocalizedString("info", comment: ""), message: NSLocalizedString("info-text", comment: ""), preferredStyle: .alert)
+        let action = UIAlertAction(title: NSLocalizedString("ok", comment: ""), style: .cancel)
+        alert.addAction(action)
+        self.navigationController?.present(alert, animated: true)
+    }
+    
+    @objc func handleLongPress(gestureRecognizer: UILongPressGestureRecognizer) {
+        if gestureRecognizer.state != UIGestureRecognizer.State.ended {
+            let touchLocation = gestureRecognizer.location(in: mapView)
+            let locationCoordinate = mapView.convert(touchLocation, toCoordinateFrom: mapView)
+            let overlays = mapView.overlays
+            mapView.removeOverlays(overlays)
+            self.showRouteOnMap(pickupCoordinate: currentLocation!.coordinate, destinationCoordinate: locationCoordinate)
+            print (locationCoordinate.longitude, locationCoordinate.latitude)
+            return
+        }
+    }
+    
     @objc func buttonTapped() {
-        let ac = UIAlertController(title: "Specify a route", message: "Enter destination coordinates", preferredStyle: .alert)
-        let cancel = UIAlertAction(title: "Cancel", style: .cancel)
+        let ac = UIAlertController(title: NSLocalizedString("Specify a route", comment: ""), message: NSLocalizedString("route-allert-loc", comment: ""), preferredStyle: .alert)
+        let cancel = UIAlertAction(title: NSLocalizedString("cancel", comment: ""), style: .cancel)
         ac.addAction(cancel)
         ac.addTextField { textField in
-            textField.placeholder = "  Enter latitude"
+            textField.placeholder = NSLocalizedString("latitude-loc", comment: "")
         }
         ac.addTextField { textField in
-            textField.placeholder = "  Enter longitude"
+            textField.placeholder = NSLocalizedString("longitude-loc", comment: "")
         }
-        let createRouteAction = UIAlertAction(title: "Create", style: .default) { [self] UIAlertAction in
+        let createRouteAction = UIAlertAction(title: NSLocalizedString("create", comment: ""), style: .default) { [self] UIAlertAction in
             guard let textFields = ac.textFields else {return}
             
             let latitude = Double(textFields[0].text!)!
@@ -80,7 +107,7 @@ class ViewController: UIViewController, MKMapViewDelegate {
             
             self.showRouteOnMap(pickupCoordinate: currentLocation!.coordinate, destinationCoordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
             
-            let destinationPin = Annotation(title: "Destination", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), info: "My destination")
+            let destinationPin = Annotation(title: NSLocalizedString("destination", comment: ""), coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), info: NSLocalizedString("my-destination", comment: ""))
             mapView.addAnnotations([destinationPin])
         }
         ac.addAction(createRouteAction)
@@ -148,9 +175,9 @@ extension ViewController: CLLocationManagerDelegate {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.requestLocation()
         case .denied, .restricted:
-            print("Определение локации невозможно")
+            print(NSLocalizedString("error-impossible", comment: ""))
         case .notDetermined:
-            print("Определение локации не запрошено")
+            print(NSLocalizedString("error-not_requested", comment: ""))
         @unknown default:
             fatalError()
         }
